@@ -38,6 +38,7 @@ import me.rerere.ai.ui.MessageChunk
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessageAnnotation
 import me.rerere.ai.ui.UIMessageChoice
+import me.rerere.ai.ui.ToolApprovalState
 import me.rerere.ai.ui.UIMessagePart
 import me.rerere.ai.util.KeyRoulette
 import me.rerere.ai.util.configureReferHeaders
@@ -836,7 +837,8 @@ class ChatCompletionsAPI(
                             toolCallId = toolCallId ?: "",
                             toolName = toolName ?: "",
                             input = arguments ?: "",
-                            output = emptyList()
+                            output = emptyList(),
+                            approvalState = if (toolName == "ask_user") ToolApprovalState.Pending else ToolApprovalState.Auto
                         )
                     )
                 }
