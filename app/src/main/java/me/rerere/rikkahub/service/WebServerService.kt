@@ -31,6 +31,7 @@ class WebServerService : Service() {
         const val ACTION_STOP = "me.rerere.rikkahub.action.WEB_SERVER_STOP"
         const val EXTRA_PORT = "port"
         const val EXTRA_LOCALHOST_ONLY = "localhost_only"
+        const val EXTRA_TUN0_ONLY = "tun0_only"
         const val NOTIFICATION_ID = 2001
     }
 
@@ -47,9 +48,10 @@ class WebServerService : Service() {
             ACTION_START -> {
                 val port = intent.getIntExtra(EXTRA_PORT, 8080)
                 val localhostOnly = intent.getBooleanExtra(EXTRA_LOCALHOST_ONLY, false)
+                val tun0Only = intent.getBooleanExtra(EXTRA_TUN0_ONLY, false)
                 startForegroundCompat()
                 startObservingState()
-                webServerManager.start(port = port, localhostOnly = localhostOnly)
+                webServerManager.start(port = port, localhostOnly = localhostOnly, tun0Only = tun0Only)
             }
 
             ACTION_STOP -> {
@@ -69,7 +71,8 @@ class WebServerService : Service() {
                         startObservingState()
                         webServerManager.start(
                             port = settings.webServerPort,
-                            localhostOnly = settings.webServerLocalhostOnly
+                            localhostOnly = settings.webServerLocalhostOnly,
+                            tun0Only = settings.webServerTun0Only
                         )
                     } else {
                         stopSelf()

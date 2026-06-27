@@ -111,6 +111,7 @@ fun SettingWebPage() {
             action = WebServerService.ACTION_START
             putExtra(WebServerService.EXTRA_PORT, settings.webServerPort)
             putExtra(WebServerService.EXTRA_LOCALHOST_ONLY, settings.webServerLocalhostOnly)
+            putExtra(WebServerService.EXTRA_TUN0_ONLY, settings.webServerTun0Only)
         }
         context.startForegroundService(intent)
         scope.launch {
@@ -242,11 +243,33 @@ fun SettingWebPage() {
                                 onCheckedChange = { checked ->
                                     scope.launch {
                                         settingsStore.update {
-                                            it.copy(webServerLocalhostOnly = checked)
+                                            it.copy(
+                                                webServerLocalhostOnly = checked,
+                                                webServerTun0Only = if (checked) false else it.webServerTun0Only,
+                                            )
                                         }
                                     }
                                 },
-                                // 运行中不允许切换 需重启服务生效
+                                enabled = !serverState.isRunning,
+                            )
+                        },
+                    )
+                    item(
+                        headlineContent = { Text(stringResource(R.string.setting_page_web_server_tun0_only)) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_web_server_tun0_only_desc)) },
+                        trailingContent = {
+                            Switch(
+                                checked = settings.webServerTun0Only,
+                                onCheckedChange = { checked ->
+                                    scope.launch {
+                                        settingsStore.update {
+                                            it.copy(
+                                                webServerTun0Only = checked,
+                                                webServerLocalhostOnly = if (checked) false else it.webServerLocalhostOnly,
+                                            )
+                                        }
+                                    }
+                                },
                                 enabled = !serverState.isRunning,
                             )
                         },
@@ -314,7 +337,14 @@ fun SettingWebPage() {
                     )
                     if (serverState.isRunning) {
                         val port = serverState.port
-                        if (!serverState.localhostOnly) {
+                        if (serverState.tun0Only) {
+                            val tun0Url = "http://${serverState.address ?: "tun0"}:$port"
+                            item(
+                                onClick = { copyUrl(tun0Url) },
+                                headlineContent = { Text(stringResource(R.string.setting_page_web_server_tun0_address)) },
+                                supportingContent = { Text(tun0Url) },
+                            )
+                        } else if (!serverState.localhostOnly) {
                             val lanUrl = "http://${serverState.address ?: "localhost"}:$port"
                             item(
                                 onClick = { copyUrl(lanUrl) },

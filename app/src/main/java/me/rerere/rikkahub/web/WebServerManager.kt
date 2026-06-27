@@ -17,11 +17,20 @@ import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.service.ChatService
 import me.rerere.rikkahub.web.startWebServer
+import java.net.NetworkInterface
 import java.net.ServerSocket
 
 private const val TAG = "WebServerManager"
 private const val HOST_ALL_INTERFACES = "0.0.0.0"
 private const val HOST_LOOPBACK = "127.0.0.1"
+
+private fun resolveTun0Address(): String? = runCatching {
+    NetworkInterface.getNetworkInterfaces()?.asSequence()
+        ?.filter { it.name == "tun0" && it.isUp }
+        ?.flatMap { it.inetAddresses.asSequence() }
+        ?.firstOrNull { !it.isLoopbackAddress && it.address.size == 4 }
+        ?.hostAddress
+}.getOrNull()
 
 data class WebServerState(
     val isRunning: Boolean = false,
@@ -29,6 +38,7 @@ data class WebServerState(
     val port: Int = 8080,
     val serviceName: String = DEFAULT_SERVICE_NAME,
     val localhostOnly: Boolean = false,
+    val tun0Only: Boolean = false,
     val hostname: String? = null,
     val address: String? = null,
     val error: String? = null
@@ -51,7 +61,8 @@ class WebServerManager(
     fun start(
         port: Int = 8080,
         serviceName: String = DEFAULT_SERVICE_NAME,
-        localhostOnly: Boolean = false
+        localhostOnly: Boolean = false,
+        tun0Only: Boolean = false
     ) {
         if (server != null) {
             Log.w(TAG, "Server already running")
@@ -59,12 +70,16 @@ class WebServerManager(
         }
 
         appScope.launch {
-            // 仅本机模式绑定回环地址
-            val host = if (localhostOnly) HOST_LOOPBACK else HOST_ALL_INTERFACES
+            val host = when {
+                localhostOnly -> HOST_LOOPBACK
+                tun0Only -> resolveTun0Address() ?: HOST_ALL_INTERFACES
+                else -> HOST_ALL_INTERFACES
+            }
             val baseState = WebServerState(
                 port = port,
                 serviceName = serviceName,
-                localhostOnly = localhostOnly
+                localhostOnly = localhostOnly,
+                tun0Only = tun0Only,
             )
             try {
                 _state.value = _state.value.copy(isLoading = true)
@@ -78,9 +93,12 @@ class WebServerManager(
                     configureWebApi(context, chatService, conversationRepo, settingsStore, filesManager)
                 }.start(wait = false)
 
-                _state.value = baseState.copy(isRunning = true)
+                _state.value = baseState.copy(
+                    isRunning = true,
+                    address = if (tun0Only) host else null,
+                )
                 // 仅局域网模式注册 mDNS
-                if (!localhostOnly) {
+                if (!localhostOnly && !tun0Only) {
                     runCatching {
                         nsdRegistrar.register(
                             port = port,
@@ -130,10 +148,11 @@ class WebServerManager(
     fun restart(
         port: Int = _state.value.port,
         serviceName: String = _state.value.serviceName,
-        localhostOnly: Boolean = _state.value.localhostOnly
+        localhostOnly: Boolean = _state.value.localhostOnly,
+        tun0Only: Boolean = _state.value.tun0Only
     ) {
         stop()
-        start(port, serviceName, localhostOnly)
+        start(port, serviceName, localhostOnly, tun0Only)
     }
 
     private fun isPortAvailable(port: Int): Boolean {
