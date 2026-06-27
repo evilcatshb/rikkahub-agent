@@ -15,7 +15,7 @@ fun createSkillTools(
     allSkills: List<SkillMetadata>,
     skillManager: SkillManager,
 ): List<Tool> {
-    val available = allSkills.filter { it.name in enabledSkills }
+    val available = allSkills.filter { it.name in enabledSkills && it.name != "agent-core" }
     if (available.isEmpty()) return emptyList()
 
     return listOf(
@@ -34,11 +34,6 @@ fun createSkillTools(
             """.trimIndent(),
             systemPrompt = { _, _ ->
                 buildString {
-                    // Auto-load skills with `auto_load: true` in their SKILL.md frontmatter:
-                    // their body (auto_load_path file if set, else SKILL.md) is inlined into
-                    // the system prompt every turn, no `use_skill` call needed. Use for the
-                    // "core persona" skills (agent-core/SOUL.md). Models that previously
-                    // never bothered to discover the SOUL via use_skill now see it on turn 1.
                     val autoLoaded = available.filter { it.autoLoad }
                     autoLoaded.forEach { skill ->
                         val path = skill.autoLoadPath
