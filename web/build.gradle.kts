@@ -5,12 +5,16 @@ plugins {
 val webUiDir = rootProject.layout.projectDirectory.dir("web-ui")
 val webStaticResourcesDir = layout.projectDirectory.dir("src/main/resources/static")
 
+val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+fun pnpmCmd(vararg args: String): List<String> =
+    if (isWindows) listOf("cmd", "/c", "pnpm") + args else listOf("pnpm") + args
+
 val installWebUiDeps = tasks.register<Exec>("installWebUiDeps") {
     group = "build"
     description = "Install web-ui dependencies via pnpm if the lockfile changed."
 
     workingDir = webUiDir.asFile
-    commandLine("pnpm", "install", "--frozen-lockfile")
+    commandLine(pnpmCmd("install", "--frozen-lockfile"))
 
     inputs.files(
         webUiDir.file("package.json"),
@@ -26,7 +30,7 @@ val buildWebUi = tasks.register<Exec>("buildWebUi") {
     dependsOn(installWebUiDeps)
 
     workingDir = webUiDir.asFile
-    commandLine("pnpm", "run", "build")
+    commandLine(pnpmCmd("run", "build"))
 
     inputs.files(
         webUiDir.file("package.json"),
